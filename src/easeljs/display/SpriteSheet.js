@@ -478,7 +478,7 @@ this.createjs = this.createjs||{};
 
 // private methods:
 	/**
-	 * called from constructor and parses data to find rotated property and makes sure it is recorded in the entries of _frames array
+	 * Mod called from constructor and parses data to find rotated property and makes sure it is recorded in the entries of _frames array
 	 * 
 	 * @method _parseData
 	 * @param {Object} data An object describing the SpriteSheet data.
@@ -517,7 +517,7 @@ this.createjs = this.createjs||{};
 			a = data.frames;
 			for (i=0,l=a.length;i<l;i++) {
 				var arr = a[i];
-				this._frames.push({image:this._images[arr[4]?arr[4]:0], rect:new createjs.Rectangle(arr[0],arr[1],arr[2],arr[3]), regX:arr[5]||0, regY:arr[6]||0 });
+				this._frames.push({image:this._images[arr[4]?arr[4]:0], rect:new createjs.Rectangle(arr[0],arr[1],arr[2],arr[3]), regX:arr[5]||0, regY:arr[6]||0, oRegX:arr[8]||arr[5]||0, oRegY:arr[9]||arr[6]||0, rotated:!!arr[7], scale:arr[10] }); // inject the rotated and oReg properties
 			}
 		} else {
 			o = data.frames;
@@ -598,7 +598,7 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
-	 * called from parseData and is used to set up frames if a single frame data object is given instead of array above
+	 * Mod called from parseData and is used to set up frames if a single frame data object is given instead of array above
 	 * 
 	 * @method _calculateFrames
 	 * @protected
