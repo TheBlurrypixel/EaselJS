@@ -478,6 +478,8 @@ this.createjs = this.createjs||{};
 
 // private methods:
 	/**
+	 * called from constructor and parses data to find rotated property and makes sure it is recorded in the entries of _frames array
+	 * 
 	 * @method _parseData
 	 * @param {Object} data An object describing the SpriteSheet data.
 	 * @protected
@@ -523,6 +525,10 @@ this.createjs = this.createjs||{};
 			this._frameHeight = o.height;
 			this._regX = o.regX||0;
 			this._regY = o.regY||0;
+			this._oRegX = o.oRegX||o.regX||0; // records the oRegX property as _oRegX
+			this._oRegY = o.oRegY||o.regY||0; // records the oRegY property as _oRegY
+			this._rotated = !!o.rotated; // records the rotated property
+			this._scale = o.scale||1; // records the scale property
 			this._spacing = o.spacing||0;
 			this._margin = o.margin||0;
 			this._numFrames = o.count;
@@ -592,6 +598,8 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
+	 * called from parseData and is used to set up frames if a single frame data object is given instead of array above
+	 * 
 	 * @method _calculateFrames
 	 * @protected
 	 **/
@@ -618,7 +626,11 @@ this.createjs = this.createjs||{};
 							image: img,
 							rect: new createjs.Rectangle(x, y, frameWidth, frameHeight),
 							regX: this._regX,
-							regY: this._regY
+							regY: this._regY,
+							oRegX: this._oRegX, // oRegX and oRegY assigned in _parseData 
+							oRegY: this._oRegY,
+							rotated: this._rotated,
+							scale: this._scale
 						});
 					x += frameWidth+spacing;
 				}
@@ -627,7 +639,6 @@ this.createjs = this.createjs||{};
 		}
 		this._numFrames = frameCount;
 	};
-
 
 	createjs.SpriteSheet = createjs.promote(SpriteSheet, "EventDispatcher");
 }());

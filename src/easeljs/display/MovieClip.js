@@ -598,17 +598,32 @@ this.createjs = this.createjs||{};
 	 * Renders position 0 without running actions or updating _rawPosition.
 	 * Primarily used by Animate CC to build out the first frame in the constructor of MC symbols.
 	 * NOTE: not tested when run after the MC advances past the first frame.
+	 * 
+	 * this is a fix to force clips that are 1 frame or less to pause upon instantiation
+	 * for single frame clips one may assume they are paused but this was not true
+	 * and may cause a slow down in graphically heavy clips
+	 * caused by _tick() calling MovieClip.advance() propagating numerous calls to addManagedChild()
+	 * this fix will set paused on such clips upon instantiation
+	 * NOTE: my understanding is that _renderFirstFrame runs only on instantiation
 	 * @method _renderFirstFrame
 	 * @protected
 	 **/
 	p._renderFirstFrame = function() {
 		var tl = this.timeline, pos = tl.rawPosition;
+		
+		// if clip is 1 frame or less then pause it
+		var d=tl.duration;
+		if (!d || (tl.useTicks ? d === 1 : d <= 1000/this.framerate)) this.paused = true;
+
 		tl.setPosition(0, true, true, this._bound_resolveState);
 		tl.rawPosition = pos;
 	};
 	
 	/**
 	 * Runs via a callback after timeline property updates and before actions.
+	 * 
+	 * this continues a fix for setting paused when timeline completes
+	 * also fix for restoring paused state after _addManagedChild()
 	 * @method _resolveState
 	 * @protected
 	 **/
@@ -626,7 +641,13 @@ this.createjs = this.createjs||{};
 
 			if (target instanceof createjs.DisplayObject) {
 				// motion tween.
-				this._addManagedChild(target, offset);
+				if(target instanceof createjs.MovieClip) {
+					var paused = target.paused;
+					this._addManagedChild(target, offset);
+					target.paused = paused;
+				}
+				else
+					this._addManagedChild(target, offset);
 			} else {
 				// state tween.
 				this._setState(target.state, offset);
@@ -640,6 +661,12 @@ this.createjs = this.createjs||{};
 				this.removeChildAt(i);
 				delete(this._managed[id]);
 			}
+		}
+
+		// if timeline complete then set paused according to timeline
+		if(tl._end) {
+			this.paused = true;
+			tl._end = undefined;
 		}
 	};
 
@@ -681,6 +708,10 @@ this.createjs = this.createjs||{};
 	};
 	
 	/**
+	 * if frameBounds returns a null instead of a rectangle which is the case if the frame is empty
+	 * then MovieClip._getBounds may throw error thrown by Rectangle.copy()
+	 * Fix _getBounds() to return a null instead of throwing an error 
+	 * 
 	 * @method _getBounds
 	 * @param {Matrix2D} matrix
 	 * @param {Boolean} ignoreTransform
@@ -690,7 +721,10 @@ this.createjs = this.createjs||{};
 	p._getBounds = function(matrix, ignoreTransform) {
 		var bounds = this.DisplayObject_getBounds();
 		if (!bounds) {
-			if (this.frameBounds) { bounds = this._rectangle.copy(this.frameBounds[this.currentFrame]); }
+			if (this.frameBounds) {
+				var frameRect = this.frameBounds[this.currentFrame];
+				if(frameRect) bounds = this._rectangle.copy(frameRect);
+			}
 		}
 		if (bounds) { return this._transformBounds(bounds, matrix, ignoreTransform); }
 		return this.Container__getBounds(matrix, ignoreTransform);

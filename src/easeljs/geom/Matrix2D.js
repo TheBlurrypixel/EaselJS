@@ -465,6 +465,8 @@ this.createjs = this.createjs||{};
 	 * Decomposes the matrix into transform properties (x, y, scaleX, scaleY, and rotation). Note that these values
 	 * may not match the transform properties you used to generate the matrix, though they will produce the same visual
 	 * results.
+	 * 
+	 * adding a fix for rotation
 	 * @method decompose
 	 * @param {Object} target The object to apply the transform properties to. If null, then a new object will be returned.
 	 * @return {Object} The target, or a new generic object with the transform properties applied.
@@ -488,6 +490,7 @@ this.createjs = this.createjs||{};
 			}
 			target.skewX = target.skewY = 0;
 		} else {
+			target.rotation = 0; // fix
 			target.skewX = skewX/Matrix2D.DEG_TO_RAD;
 			target.skewY = skewY/Matrix2D.DEG_TO_RAD;
 		}

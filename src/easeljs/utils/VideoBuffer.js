@@ -93,24 +93,51 @@ this.createjs = this.createjs||{};
 	
 // public methods:
 	/**
+	 * BEGIN modifications to fix error with VideoBuffer sometimes returning empty canvas
+	 * videoWidth or videoHeight not always set after loadedmetadata event as it is sometimes is set after playback
+	 * this may cause a "Passed-in canvas is empty" error 
+	 * Also modifying to allow rendering of video poster when not ready
+	 * usePoster: enables using the poster attribute to retrieve an image - only valid if a poster attribute is set and the readystate < 2
+	 *			if usePoster is a callback function then it will call it with the canvas and poster image as args
+	 *			this is used mainly in the VideoObject with copyCanvas for StageGL compatibility
+	 * 
 	 * Gets an HTML canvas element showing the current video frame, or the previous frame if in a seek / loop.
 	 * Primarily for use by {{#crossLink "Bitmap"}}{{/crossLink}}.
 	 * @method getImage
 	 **/
-	p.getImage = function() {
-		if (this.readyState < 2) { return; }
+	p.getImage = function(posterCallback) {
 		var canvas=this._canvas, video = this._video;
-		if (!canvas) {
+		if (this.readyState < 2 && !(this.usePoster && video.poster)) { return; }
+
+		if (!canvas || canvas.width == 0 || canvas.height == 0) {
 			canvas = this._canvas = createjs.createCanvas?createjs.createCanvas():document.createElement("canvas");
 			canvas.width = video.videoWidth;
 			canvas.height = video.videoHeight;
 		}
-		if (video.readyState >= 2 && video.currentTime !== this._lastTime) {
-			var ctx = canvas.getContext("2d");
-			ctx.clearRect(0,0,canvas.width,canvas.height);
-			ctx.drawImage(video,0,0,canvas.width,canvas.height);
-			this._lastTime = video.currentTime;
+
+		if (video.readyState >= 2) {
+			// update buffer otherwise do not update
+			if(this._disableSeekBuffering || video.currentTime !== this._lastTime) {
+				if(stage.isWebGL) stage.releaseTexture(canvas); // release the previous texture so the animation will "play"
+				var ctx = canvas.getContext("2d");
+				ctx.clearRect(0,0,canvas.width,canvas.height);
+				ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+				this._lastTime = video.currentTime;
+			}
 		}
+		else if(this.usePoster && video.poster) { // update buffer with a poster image - should always be true if video.readyState < 2
+			var img = new Image();
+			img.onload = function() {
+				var ctx = canvas.getContext("2d");
+				ctx.clearRect(0,0,canvas.width,canvas.height);
+				ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
+				if(posterCallback) posterCallback(canvas, img);
+			};
+			img.src = video.poster;
+		}
+
 		return canvas;
 	};
 	
@@ -122,7 +149,6 @@ this.createjs = this.createjs||{};
 	p._videoReady = function() {
 		this.readyState = 2;
 	};
-
 
 	createjs.VideoBuffer = VideoBuffer;
 }());

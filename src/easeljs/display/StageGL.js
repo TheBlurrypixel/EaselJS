@@ -66,6 +66,9 @@ this.createjs = this.createjs||{};
 	"use strict";
 
 	/**
+	 * Several modifications for webgl2, knockoff, bitmapSwap, sprites, rotated prop in spritesheets, useCache codes etc.
+	 * lines commented
+	 * 
 	 * A StageGL instance is the root level {{#crossLink "Container"}}{{/crossLink}} for a WebGL-optimized display list,
 	 * which can be used in place of the usual {{#crossLink "Stage"}}{{/crossLink}}. This class should behave identically
 	 * to a {{#crossLink "Stage"}}{{/crossLink}} except for WebGL-specific functionality.
@@ -137,7 +140,8 @@ this.createjs = this.createjs||{};
 	function StageGL(canvas, options) {
 		this.Stage_constructor(canvas);
 
-		var transparent, antialias, preserveBuffer, autoPurge, directDraw, batchSize;
+		// adding webgl2 options
+		var transparent, antialias, preserveBuffer, autoPurge, directDraw, batchSize, webgl2;
 		if (options !== undefined) {
 			if (typeof options !== "object"){ throw("Invalid options object"); }
 			transparent = options.transparent;
@@ -146,6 +150,7 @@ this.createjs = this.createjs||{};
 			autoPurge = options.autoPurge;
 			directDraw = options.directDraw;
 			batchSize = options.batchSize;
+			webgl2 = options.webgl2;
 		}
 
 // public properties:
@@ -523,6 +528,17 @@ this.createjs = this.createjs||{};
 		 */
 		this._cacheContainer = new createjs.Container();
 
+		/**
+		 * Add webgl2
+		 *
+		 * Specifies whether or not the browser's WebGL implementation is webgl2.
+		 * @property _webgl2
+		 * @protected
+		 * @type {Boolean}
+		 * @default false
+		 */
+		this._webgl2 = webgl2;
+
 		// and begin
 		this._initializeWebGL();
 
@@ -533,6 +549,7 @@ this.createjs = this.createjs||{};
 		}
 	}
 	var p = createjs.extend(StageGL, createjs.Stage);
+	var SYMBOLS = createjs.SYMBOLS;
 
 // static methods:
 	/**
@@ -578,6 +595,8 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
+	 * Add webgl2
+	 * 
 	 * Test a context to see if it has WebGL enabled on it.
 	 * @method isWebGLActive
 	 * @param {CanvasRenderingContext2D | WebGLRenderingContext} ctx The context to test
@@ -586,8 +605,8 @@ this.createjs = this.createjs||{};
 	 */
 	StageGL.isWebGLActive = function (ctx) {
 		return ctx &&
-			ctx instanceof WebGLRenderingContext &&
-			typeof WebGLRenderingContext !== 'undefined';
+			ctx instanceof WebGLRenderingContext && typeof WebGLRenderingContext !== 'undefined' ||
+			ctx instanceof WebGL2RenderingContext && typeof WebGL2RenderingContext !== 'undefined';
 	};
 
 	/**
@@ -1257,7 +1276,7 @@ this.createjs = this.createjs||{};
 			/**
 			 * Specifies whether or not StageGL is automatically purging unused textures. Higher numbers purge less
 			 * often. Values below 10 are upgraded to 10, and -1 disables this feature. If you are not dynamically adding
-			 * and removing new images this can be se9000t to -1, and should be for performance reasons. If you only add images,
+			 * and removing new images this can be set to -1, and should be for performance reasons. If you only add images,
 			 * or add and remove the same images for the entire application, it is safe to turn off this feature. Alternately,
 			 * manually manage removing textures yourself with {{#crossLink "StageGL/releaseTexture"}}{{/crossLink}}
 			 * @property autoPurge
@@ -1421,6 +1440,13 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
+	 * NEED TO MOD as _cacheDraw and _batchDraw no longer in proto, incorporated in cacheDraw
+	 * Mods should be:
+	 * BEGIN modifications to properly support swapped sprites in StageGL
+	 * cacheDraw is called in StageGL will call the default spriteSheet.getFrame()
+	 * if is regular draw it will call the modded spriteSheet.getFrame_swapped()
+	 * also modified to support useGL: StageGL option in BitmapCache define
+	 * 
 	 * Draws the target into the correct context, be it a canvas or Render Texture using WebGL.
 	 *
 	 * NOTE: This method is mainly for internal use, though it may be useful for advanced uses.
@@ -1539,7 +1565,7 @@ this.createjs = this.createjs||{};
 		} else if (item._webGLRenderStyle === 2) {
 			// this is a Bitmap class
 			foundImage = item.image;
-			if (foundImage.getImage) { foundImage = foundImage.getImage(); }
+			if (foundImage.getImage) { foundImage = foundImage.getImage(); } // returns a VideoBuffer's canvas
 		} else if (item._webGLRenderStyle === 1) {
 			// this is a SpriteSheet, we can't tell which image we used from the list easily so remove them all!
 			for (i = 0, l = item.spriteSheet._images.length; i < l; i++) {
@@ -1769,6 +1795,8 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
+	 * Modified to support transparent
+	 * 
 	 * Changes the webGL clear, aka "background" color to the provided value. A transparent clear is recommended, as
 	 * non-transparent colours may create undesired boxes around some visuals.
 	 *
@@ -1787,7 +1815,9 @@ this.createjs = this.createjs||{};
 	 * @param {String|int} [color=0x00000000] The new color to use as the background
 	 */
 	p.setClearColor = function (color) {
-		this._clearColor = StageGL.colorToObj(color);
+		var clearColor = StageGL.colorToObj(color);
+		if(this._transparent) clearColor.a = 0;
+		this._clearColor = clearColor;
 	};
 
 	/**
@@ -1840,6 +1870,7 @@ this.createjs = this.createjs||{};
 			}
 			this.clear();
 			if(!this._directDraw) {
+				
 				this._drawCover(null, this._bufferTextureOutput);
 			} else {
 				this.draw(gl);
@@ -1902,7 +1933,7 @@ this.createjs = this.createjs||{};
 
 	/**
 	 * Visually clear out the currently active FrameBuffer, does not rebind or adjust the frameBuffer in use.
-	 * @method _getSafeTexture
+	 * @method _clearFrameBuffer
 	 * @param alpha
 	 * @protected
 	 */
@@ -1920,6 +1951,8 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
+	 * Add webgl2
+	 * 
 	 * Sets up and returns the WebGL context for the canvas. May return undefined in error scenarios. These can include 
 	 * situations where the canvas element already has a context, 2D or GL.
 	 * @param  {Canvas} canvas The DOM canvas element to attach to
@@ -1932,7 +1965,7 @@ this.createjs = this.createjs||{};
 		var gl;
 
 		try {
-			gl = canvas.getContext("webgl", options) || canvas.getContext("experimental-webgl", options);
+			gl = canvas.getContext(this._webgl2 ? "webgl2" : "webgl", options) || canvas.getContext("experimental-webgl", options);
 		} catch (e) {
 			// don't do anything in catch, null check will handle it
 		}
@@ -2230,6 +2263,7 @@ this.createjs = this.createjs||{};
 	 */
 	p._loadTextureImage = function (gl, image) {
 		var srcPath, texture, msg;
+
 		if ((image instanceof Image || image instanceof HTMLImageElement) && image.src) {
 			srcPath = image.src;
 		} else if (image instanceof HTMLCanvasElement) {
@@ -2587,6 +2621,10 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
+	 * if fromCacheDraw swapped sprites will call regular getFrame() otherwise calls getFrame_swapped()
+	 * Several modifications propagate into this knockoff, bitmapSwap, sprites, rotated prop in spritesheets, useCache codes etc.
+	 * lines commented
+	 * 
 	 * Add all the contents of a container to the pending buffers, called recursively on each container. This may
 	 * trigger a draw if a buffer runs out of space. This is the main workforce of the render loop.
 	 * @method _appendToBatch
@@ -2596,7 +2634,7 @@ this.createjs = this.createjs||{};
 	 * @param {Boolean} [ignoreCache=false] Don't use an element's cache during this draw
 	 * @protected
 	 */
-	p._appendToBatch = function (container, concatMtx, concatAlpha, ignoreCache) {
+	p._appendToBatch = function (container, concatMtx, concatAlpha, ignoreCache, knockoff) {
 		var gl = this._webGLContext;
 
 		// sort out shared properties
@@ -2622,19 +2660,45 @@ this.createjs = this.createjs||{};
 		var subL, subT, subR, subB;
 
 		// actually apply its data to the buffers
-		var l = container.children.length;
+		// var l = container.children.length;
+		// knockOff mods
+		var knockOrContainer = knockoff || container;
+		var l = knockOrContainer.children.length;
+
 		for (var i = 0; i < l; i++) {
-			var item = container.children[i];
-			var useCache = (!ignoreCache && item.cacheCanvas) || false;
+			// var item = container.children[i];
+			var item = knockOrContainer.children[i]; // knockoff
+
+			// knockoff or cached
+			var knockoffCached = item[SYMBOLS.KNOCKOFF] && item[SYMBOLS.KNOCKOFF].cacheCanvas;
+			var itemCaching = item.bitmapCache && !ignoreCache && item.cacheCanvas;
+			var useCache = itemCaching || knockoffCached || false; // useCache will be a cacheCanvas if true or exactly false
+//			var useCache = (!ignoreCache && item.cacheCanvas) || false;
 
 			if (!(item.visible && concatAlpha > 0.0035)) { continue; }
 			var itemAlpha = item.alpha;
 
 			if (useCache === false) {
+				if (item._handleDrawEnd && !(SYMBOLS.BITMAPSWAP in item)) { 
+					item.draw();
+					continue;
+				} // draw Adobe Animate components
+
 				if (item._updateState){
 					item._updateState();
 				}
 
+				if (item[SYMBOLS.KNOCKOFF]) {
+					item[SYMBOLS.KNOCKOFF]._updateState && item[SYMBOLS.KNOCKOFF]._updateState();
+					if (item[SYMBOLS.KNOCKOFF].children) {
+						this._appendToBatch(item, cMtx, itemAlpha * concatAlpha, ignoreCache, item[SYMBOLS.KNOCKOFF]); // knockoff
+						continue;
+					}
+				}
+
+				// not directDraw and no cache BUT it has filters! creates a cache automatically
+				// Aniamte should create the cache but watch out for this if you create your own filters
+				// as the cache is generated during runtime and your code may not accomodate for it!
 				if(!this._directDraw && (!ignoreCache && item.cacheCanvas === null && item.filters !== null && item.filters.length)) {
 					var bounds;
 					if (item.bitmapCache === null) {
@@ -2642,6 +2706,7 @@ this.createjs = this.createjs||{};
 						item.bitmapCache = new createjs.BitmapCache();
 						item.bitmapCache._autoGenerated = true;
 					}
+
 					if (item.bitmapCache._autoGenerated) {
 						this.batchReason = "cachelessFilterInterupt";
 						this._renderBatch();					// <----------------------------------------------------
@@ -2660,7 +2725,7 @@ this.createjs = this.createjs||{};
 			}
 
 			if (useCache === false && item.children) {
-				this._appendToBatch(item, cMtx, itemAlpha * concatAlpha);
+				this._appendToBatch(item, cMtx, itemAlpha * concatAlpha, ignoreCache);
 				continue;
 			}
 
@@ -2691,14 +2756,30 @@ this.createjs = this.createjs||{};
 
 			var uvRect, texIndex, image, frame, texture, src;
 
-			// get the image data, or abort if not present
-			// BITMAP / Cached Canvas
-			if (item._webGLRenderStyle === 2 || useCache !== false) {
-				image = useCache === false ? item.image : useCache;
+			var itemIsSpritified = false;
+			var itemIsCached = false;
 
+			// if item[SYMBOLS.KNOCKOFF] will propagate through item[SYMBOLS.KNOCKOFF] children but matrix transform concatenation is from container
+			// BITMAP / Cached Canvas
+
+			// taken care of now by above
+			// if (!itemCaching && knockoffCached) { // if item is cached then we use that cache otherwise if knockoff cached we use that cache
+			// 	image = ignoreCache?false:item[SYMBOLS.KNOCKOFF].cacheCanvas;
+			// 	itemIsCached = true;
+			// }
+			if (item._webGLRenderStyle === 2 || useCache !== false) { // BITMAP / Cached Canvas
+				// useCache holds the cacheCanvas if it exists
+				// supports knockOffCache
+				image = useCache === false ? item.image : useCache; 
 			// SPRITE
 			} else if (item._webGLRenderStyle === 1) {
-				frame = item.spriteSheet.getFrame(item.currentFrame);
+//				if(!(fromCacheDraw && !useGL) && item[SYMBOLS.SPRITE] && item[SYMBOLS.SPRITE][SYMBOLS.GET_FRAME]) {
+				if(item[SYMBOLS.SPRITE] && item[SYMBOLS.SPRITE][SYMBOLS.GET_FRAME]) {
+					frame = item[SYMBOLS.SPRITE][SYMBOLS.GET_FRAME](item.currentFrame);
+					itemIsSpritified = true;
+				}
+				else
+					frame = item.spriteSheet.getFrame(item.currentFrame);
 				if (frame === null) { continue; }
 				image = frame.image;
 
@@ -2709,6 +2790,8 @@ this.createjs = this.createjs||{};
 			if (!image) { continue; }
 
 			// calculate texture
+			if(image.getImage) image = image.getImage(); // for videoBuffers
+			
 			if (image._storeID === undefined) {
 				// this texture is new to us so load it and add it to the batch
 				texture = this._loadTextureImage(gl, image);
@@ -2726,8 +2809,11 @@ this.createjs = this.createjs||{};
 					this._insertTextureInBatch(gl, texture);
 				}
 			}
+			if(itemIsSpritified) texture.isSpritified = true;
+			if(itemIsCached) texture.isCached = true;
 			texIndex = texture._activeIndex;
 			image._drawID = this._drawID;
+			var rotated = false; // hoisting rotated variable
 
 			// BITMAP / Cached Canvas
 			if (item._webGLRenderStyle === 2 || useCache !== false) {
@@ -2752,7 +2838,8 @@ this.createjs = this.createjs||{};
 						subL = 0;						subT = 0;
 						subR = image.width+subL;		subB = image.height+subT;
 					} else {
-						src = item.bitmapCache;
+						// src = item.bitmapCache;
+						src = itemCaching ? item.bitmapCache : item[SYMBOLS.KNOCKOFF].bitmapCache; // if item is cached use that otherwise it will be knockoff cache use that
 						subL = src.x+(src._filterOffX/src.scale);	subT = src.y+(src._filterOffY/src.scale);
 						subR = (src._drawWidth/src.scale)+subL;		subB = (src._drawHeight/src.scale)+subT;
 					}
@@ -2760,6 +2847,7 @@ this.createjs = this.createjs||{};
 
 			// SPRITE
 			} else if (item._webGLRenderStyle === 1) {
+				rotated = !!frame.rotated; // init rotated variable - spritified frames should not have this
 				var rect = frame.rect;
 
 				// calculate uvs
@@ -2768,9 +2856,40 @@ this.createjs = this.createjs||{};
 					uvRect = StageGL.buildUVRects(item.spriteSheet, item.currentFrame, false);
 				}
 
+				// non-spritified sprite frames do not have these properties so make sure you make allowance for that
+				var preserveRegistration = frame.preserveRegistration;
+				var preserveSize = frame.preserveSize;
+				var trim = frame.trim || 0;
+				var frameScale = frame.scale || 1;
+
+				var width = rect.width - trim;
+				var height = rect.height - trim;
+
+				var regX = frame.regX;
+				var regY = frame.regY;
+				var scale = 1;
+
 				// calculate vertices
-				subL = -frame.regX;								subT = -frame.regY;
-				subR = rect.width-frame.regX;					subB = rect.height-frame.regY;
+				// subL = -frame.regX;								subT = -frame.regY;
+				// subR = rect.width-frame.regX;					subB = rect.height-frame.regY;
+				if(preserveSize) scale = 1/frameScale;
+				if(preserveRegistration) {
+					regX = frame.oRegX;
+					regY = frame.oRegY;
+				}
+
+				width *= scale;
+				height *= scale;
+
+				subL = -regX;								subT = -regY;
+
+				// if rotated swap width and height
+				if(rotated) {
+					subR = height-regX;					subB = width-regY;
+				}
+				else {
+					subR = width-regX;					subB = height-regY;
+				}				
 			}
 
 			var spacing = 0;
@@ -2783,17 +2902,66 @@ this.createjs = this.createjs||{};
 			// apply vertices
 			spacing = cfg.position.spacing;
 			var vtxOff = this._batchVertexCount * spacing + cfg.position.offset;
-			vpos[vtxOff] = subL*iMtx.a + subT*iMtx.c + iMtx.tx;    vpos[vtxOff+1] = subL*iMtx.b + subT*iMtx.d + iMtx.ty;
-			vtxOff += spacing;
-			vpos[vtxOff] = subL*iMtx.a + subB*iMtx.c + iMtx.tx;    vpos[vtxOff+1] = subL*iMtx.b + subB*iMtx.d + iMtx.ty;
-			vtxOff += spacing;
-			vpos[vtxOff] = subR*iMtx.a + subT*iMtx.c + iMtx.tx;    vpos[vtxOff+1] = subR*iMtx.b + subT*iMtx.d + iMtx.ty;
-			vtxOff += spacing;
-			vpos[vtxOff] = subL*iMtx.a + subB*iMtx.c + iMtx.tx;    vpos[vtxOff+1] = subL*iMtx.b + subB*iMtx.d + iMtx.ty;
-			vtxOff += spacing;
-			vpos[vtxOff] = subR*iMtx.a + subT*iMtx.c + iMtx.tx;    vpos[vtxOff+1] = subR*iMtx.b + subT*iMtx.d + iMtx.ty;
-			vtxOff += spacing;
-			vpos[vtxOff] = subR*iMtx.a + subB*iMtx.c + iMtx.tx;    vpos[vtxOff+1] = subR*iMtx.b + subB*iMtx.d + iMtx.ty;
+			if(!rotated) {
+				// LT
+				vpos[vtxOff] = subL*iMtx.a + subT*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subL*iMtx.b + subT*iMtx.d + iMtx.ty;
+				vtxOff += spacing;
+	
+				// LB
+				vpos[vtxOff] = subL*iMtx.a + subB*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subL*iMtx.b + subB*iMtx.d + iMtx.ty;
+				vtxOff += spacing;
+	
+				// RT
+				vpos[vtxOff] = subR*iMtx.a + subT*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subR*iMtx.b + subT*iMtx.d + iMtx.ty;
+				vtxOff += spacing;
+	
+				// LB
+				vpos[vtxOff] = subL*iMtx.a + subB*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subL*iMtx.b + subB*iMtx.d + iMtx.ty;
+				vtxOff += spacing;
+	
+				// RT
+				vpos[vtxOff] = subR*iMtx.a + subT*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subR*iMtx.b + subT*iMtx.d + iMtx.ty;
+				vtxOff += spacing;
+	
+				// RB
+				vpos[vtxOff] = subR*iMtx.a + subB*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subR*iMtx.b + subB*iMtx.d + iMtx.ty;
+			}
+			else {
+				// LB
+				vpos[vtxOff] = subL*iMtx.a + subB*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subL*iMtx.b + subB*iMtx.d + iMtx.ty;
+				vtxOff += spacing;
+	
+				// RB
+				vpos[vtxOff] = subR*iMtx.a + subB*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subR*iMtx.b + subB*iMtx.d + iMtx.ty;
+				vtxOff += spacing;
+	
+				// LT
+				vpos[vtxOff] = subL*iMtx.a + subT*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subL*iMtx.b + subT*iMtx.d + iMtx.ty;
+				vtxOff += spacing;
+	
+				// RB
+				vpos[vtxOff] = subR*iMtx.a + subB*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subR*iMtx.b + subB*iMtx.d + iMtx.ty;
+				vtxOff += spacing;
+	
+				// LT
+				vpos[vtxOff] = subL*iMtx.a + subT*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subL*iMtx.b + subT*iMtx.d + iMtx.ty;
+				vtxOff += spacing;
+	
+				// RT
+				vpos[vtxOff] = subR*iMtx.a + subT*iMtx.c + iMtx.tx;
+				vpos[vtxOff+1] = subR*iMtx.b + subT*iMtx.d + iMtx.ty;
+			}
 
 			// apply uvs
 			spacing = cfg.uv.spacing;
@@ -2935,9 +3103,44 @@ this.createjs = this.createjs||{};
 
 		gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, gl.FALSE, this._projectionMatrix);
 
-		for (var i = 0; i < this._batchTextureCount; i++) {
-			gl.activeTexture(gl.TEXTURE0 + i);
-			gl.bindTexture(gl.TEXTURE_2D, this._batchTextures[i]);
+		var warningColor = createjs[SYMBOLS.WARNING_COLORS];
+		if(warningColor & 7) {
+			var importedSprites = warningColor & 1;
+			var spritifiedSprites = warningColor & 2;
+			var cachedClip = warningColor & 4;
+
+			var spriteWarnTexture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, spriteWarnTexture);
+//			var color = hexToRgb(createjs[SYMBOLS.SPRITE_COLOR])
+			var color = StageGL.colorToObj(createjs[SYMBOLS.SPRITE_COLOR]);
+			var spriteWarnPixel = new Uint8Array([color.r, color.g, color.b, 255]);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, 
+							gl.RGBA, gl.UNSIGNED_BYTE, spriteWarnPixel);
+
+			var cacheWarnTexture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, cacheWarnTexture);
+//			var color = hexToRgb(createjs[SYMBOLS.CACHE_COLOR])
+			var color = StageGL.colorToObj(createjs[SYMBOLS.CACHE_COLOR]);
+			var cacheWarnPixel = new Uint8Array([color.r, color.g, color.b, 255]);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, 
+							gl.RGBA, gl.UNSIGNED_BYTE, cacheWarnPixel);
+
+			for (var i = 0; i < this._batchTextureCount; i++) {
+				var texture = this._batchTextures[i];
+				// choose warning texture or normal shader depending on WARNING_COLORS state
+				var resolvedTexture = cachedClip && texture.isCached ? cacheWarnTexture : spritifiedSprites && texture.isSpritified || importedSprites && !texture.isSpritified ? spriteWarnTexture : texture;
+
+				gl.activeTexture(gl.TEXTURE0 + i);
+//				gl.bindTexture(gl.TEXTURE_2D, this._batchTextures[i]);
+				gl.bindTexture(gl.TEXTURE_2D, resolvedTexture);  // use the white texture			
+//				this.setTextureParams(gl, resolvedTexture.isPOT);
+			}
+		}
+		else {
+			for (var i = 0; i < this._batchTextureCount; i++) {
+				gl.activeTexture(gl.TEXTURE0 + i);
+				gl.bindTexture(gl.TEXTURE_2D, this._batchTextures[i]);
+			}
 		}
 
 		gl.drawArrays(gl.TRIANGLES, 0, this._batchVertexCount);

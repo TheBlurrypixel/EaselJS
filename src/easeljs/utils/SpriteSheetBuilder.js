@@ -266,6 +266,8 @@ this.createjs = this.createjs||{};
 	 *
 	 * Note that this will iterate through the full MovieClip with {{#crossLink "MovieClip/actionsEnabled:property"}}{{/crossLink}}
 	 * set to `false`, ending on the last frame.
+	 * 
+	 * adding parameter preferSourceRect to block frameBounds from overriding a supplied sourceRect
 	 * @method addMovieClip
 	 * @param {MovieClip} source The source MovieClip instance to add to the SpriteSheet.
 	 * @param {Rectangle} [sourceRect] A {{#crossLink "Rectangle"}}{{/crossLink}} defining the portion of the source to
@@ -280,7 +282,7 @@ this.createjs = this.createjs||{};
 	 * parameters: the label name, the source MovieClip instance, the starting frame index (in the movieclip timeline)
 	 * and the end index. It must return a new name for the label/animation, or `false` to exclude the label.
 	 **/
-	p.addMovieClip = function(source, sourceRect, scale, setupFunction, setupData, labelFunction) {
+	p.addMovieClip = function(source, sourceRect, scale, setupFunction, setupData, labelFunction, preferSourceRect) {
 		if (this._data) { throw SpriteSheetBuilder.ERR_RUNNING; }
 		var rects = source.frameBounds;
 		var rect = sourceRect||source.bounds||source.nominalBounds;
@@ -290,7 +292,7 @@ this.createjs = this.createjs||{};
 		var i, l, baseFrameIndex = this._frames.length;
 		var duration = source.timeline.duration;
 		for (i=0; i<duration; i++) {
-			var r = (rects&&rects[i]) ? rects[i] : rect;
+			var r = !preferSourceRect || !sourceRect ? (rects&&rects[i]) ? rects[i] : rect : sourceRect;
 			this.addFrame(source, r, scale, this._setupMovieClipFrame, {i:i, f:setupFunction, d:setupData});
 		}
 		var labels = source.timeline._labels;
@@ -438,6 +440,8 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
+	 * called from _startBuild and generates dataFrames which is passed into _parseData on spriteSheet instantiation
+	 * 
 	 * @method _fillRow
 	 * @param {Array} frames
 	 * @param {Number} y
@@ -461,6 +465,8 @@ this.createjs = this.createjs||{};
 			var source = frame.source;
 			var rx = Math.floor(sc*rect.x-pad);
 			var ry = Math.floor(sc*rect.y-pad);
+			var _rx = Math.floor(rect.x-pad);
+			var _ry = Math.floor(rect.y-pad);
 			var rh = Math.ceil(sc*rect.height+pad*2);
 			var rw = Math.ceil(sc*rect.width+pad*2);
 			if (rw > w) { throw SpriteSheetBuilder.ERR_DIMENSIONS; }
@@ -469,7 +475,9 @@ this.createjs = this.createjs||{};
 			frame.rect = new createjs.Rectangle(x,y,rw,rh);
 			height = height || rh;
 			frames.splice(i,1);
-			dataFrames[frame.index] = [x,y,rw,rh,img,Math.round(-rx+sc*source.regX-pad),Math.round(-ry+sc*source.regY-pad)];
+			// added indices 8 and 9 to support _regX and _regY assigned later
+			// added index 7 as null because we use it for rotated property
+			dataFrames[frame.index] = [x,y,rw,rh,img,Math.round(-rx+sc*source.regX-pad),Math.round(-ry+sc*source.regY-pad),null,Math.round(-_rx+source.regX-pad),Math.round(-_ry+source.regY-pad),sc];
 			x += rw;
 		}
 		return {w:x, h:height};

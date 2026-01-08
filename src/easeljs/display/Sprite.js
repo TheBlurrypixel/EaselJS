@@ -168,6 +168,7 @@ this.createjs = this.createjs||{};
 		if (frameOrAnimation != null) { this.gotoAndPlay(frameOrAnimation); }
 	}
 	var p = createjs.extend(Sprite, createjs.DisplayObject);
+	var SYMBOLS = createjs.SYMBOLS;
 
 	/**
 	 * Constructor alias for backwards compatibility. This method will be removed in future versions.
@@ -212,6 +213,11 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
+	 * BEGIN CODE to support SpriteSheet rotated property and preserveRegistration for swapped sprite
+	 * further modifications in override of _appendToBatchGroup below
+	 * and modification to addMovie to block frameBounds from overriding supplied sourceRect
+	 * add mod to fill with Sprite warning shader
+	 * 
 	 * Draws the display object into the specified context ignoring its visible, alpha, shadow, and transform.
 	 * Returns true if the draw was handled (useful for overriding functionality).
 	 * NOTE: This method is mainly for internal use, though it may be useful for advanced uses.
@@ -227,7 +233,20 @@ this.createjs = this.createjs||{};
 		var o = this.spriteSheet.getFrame(this._currentFrame|0);
 		if (!o) { return false; }
 		var rect = o.rect;
-		if (rect.width && rect.height) { ctx.drawImage(o.image, rect.x, rect.y, rect.width, rect.height, -o.regX, -o.regY, rect.width, rect.height); }
+		if (rect.width && rect.height) {
+			if(o.rotated) {					
+				ctx.rotate(-90*Math.PI/180);
+				ctx.translate(-rect.width, 0);
+				}
+
+			// createjs[SYMBOLS.WARNING_COLORS] can be set from 0 to 7
+			if(createjs[SYMBOLS.WARNING_COLORS] & 1) {
+				ctx.fillStyle = createjs[SYMBOLS.SPRITE_COLOR];
+				ctx.fillRect(-o.regX, -o.regY, rect.width, rect.height);
+			}
+			else
+				ctx.drawImage(o.image, rect.x, rect.y, rect.width, rect.height, -o.regX, -o.regY, rect.width, rect.height);
+		}
 		return true;
 	};
 

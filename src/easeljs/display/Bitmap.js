@@ -128,6 +128,10 @@ this.createjs = this.createjs||{};
 	};
 
 	/**
+	 * further modifications to fix error with VideoBuffer returning empty canvas
+	 * drawImage put inside try block to catch errors from empty canvases
+	 * thrown errors are caught and discarded
+	 * 
 	 * Draws the display object into the specified context ignoring its visible, alpha, shadow, and transform.
 	 * Returns true if the draw was handled (useful for overriding functionality).
 	 *
@@ -142,7 +146,11 @@ this.createjs = this.createjs||{};
 	p.draw = function(ctx, ignoreCache) {
 		if (this.DisplayObject_draw(ctx, ignoreCache)) { return true; }
 		var img = this.image, rect = this.sourceRect;
-		if (img.getImage) { img = img.getImage(); }
+		var video;
+		if (img.getImage) {
+			video = img._video;
+			img = img.getImage();
+		}
 		if (!img) { return true; }
 		if (rect) {
 			// some browsers choke on out of bound values, so we'll fix them:
@@ -151,9 +159,14 @@ this.createjs = this.createjs||{};
 			if (x2 > w) { x2 = w; }
 			if (y1 < 0) { y -= y1; y1 = 0; }
 			if (y2 > h) { y2 = h; }
-			ctx.drawImage(img, x1, y1, x2-x1, y2-y1, x, y, x2-x1, y2-y1);
+			try { ctx.drawImage(img, x1, y1, x2-x1, y2-y1, x, y, x2-x1, y2-y1); }
+			catch(err) {}
 		} else {
-			ctx.drawImage(img, 0, 0);
+			try { 
+				if (video) ctx.drawImage(img, 0, 0, video.videoWidth, video.videoHeight); 
+				else ctx.drawImage(img, 0, 0);
+			}
+			catch(err) {}
 		}
 		return true;
 	};

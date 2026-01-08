@@ -1,5 +1,6 @@
 {
   "easel_source": [
+	"../src/createjs/utils/definitions.js",
 	"../src/createjs/utils/extend.js",
 	"../src/createjs/utils/promote.js",
 	"../src/createjs/utils/indexOf.js",

@@ -276,6 +276,7 @@ this.createjs = this.createjs||{};
 		this._bufferTextureTemp = null;
 	}
 	var p = BitmapCache.prototype;
+	var SYMBOLS = createjs.SYMBOLS;
 
 	p._get_disabled = function () {
 		return this._disabled;
@@ -525,25 +526,40 @@ this.createjs = this.createjs||{};
 
 	/**
 	 * Use context2D drawing commands to display the cache canvas being used.
+	 * 
+	 * add mod to support Cache warning shader
 	 * @method draw
 	 * @param {CanvasRenderingContext2D} ctx The context to draw into.
 	 * @return {Boolean} Whether the draw was handled successfully.
 	 **/
 	p.draw = function(ctx) {
-		if (!this.target) { return false; }
-		ctx.drawImage(this._cacheCanvas,
-			this.x + (this._filterOffX/this.scale),		this.y + (this._filterOffY/this.scale),
-			this._drawWidth/this.scale,					this._drawHeight/this.scale
-		);
+		if(!this.target) { return false; }
+		if(createjs[SYMBOLS.WARNING_COLORS] & 4) {
+			ctx.fillStyle = createjs[SYMBOLS.CACHE_COLOR];
+			ctx.fillRect(
+				this.x + (this._filterOffX/this.scale),		this.y + (this._filterOffY/this.scale),
+				this._drawWidth/this.scale,					this._drawHeight/this.scale
+			);
+		}
+		else {
+			ctx.drawImage(this.target.cacheCanvas,
+				this.x + (this._filterOffX/this.scale),		this.y + (this._filterOffY/this.scale),
+				this._drawWidth/this.scale,					this._drawHeight/this.scale
+			);
+		}
 		return true;
 	};
 
 	/**
 	 * Determine the bounds of the shape in local space.
+	 * 
+	 * this is a fix for createjs 1.0.0 missing BitmapCache.getBounds which is also incorrect in 1.0.1 and above
+	 * fix has not been implemented and was due to be release in 2.0 version which has not been released
 	 * @method getBounds
 	 * @return {Rectangle}
 	 */
 	p.getBounds = function() {
+		this._boundRect = this._boundRect || new createjs.Rectangle();
 		var scale = this.scale;
 		return this._boundRect.setValues(
 			this.x,					this.y,
@@ -633,6 +649,8 @@ this.createjs = this.createjs||{};
 
 	/**
 	 * Perform the cache draw out for context 2D now that the setup properties have been performed.
+	 * 
+	 * add mod to support Cache warning shader for StageGL
 	 * @method _drawToCache
 	 * @protected
 	 **/
@@ -651,10 +669,18 @@ this.createjs = this.createjs||{};
 			}
 
 			ctx.save();
-			ctx.globalCompositeOperation = compositeOperation;
-			ctx.setTransform(this.scale,0,0,this.scale, -this._filterOffX,-this._filterOffY);
-			ctx.translate(-this.x, -this.y);
-			target.draw(ctx, true);
+			if(createjs[SYMBOLS.WARNING_COLORS] & 4) {
+				ctx.setTransform(this.scale,0,0,this.scale, -this._filterOffX,-this._filterOffY);
+				ctx.translate(-this.x, -this.y);
+				ctx.fillStyle = createjs[SYMBOLS.CACHE_COLOR];
+				ctx.fillRect(0, 0, this._drawWidth+1, this._drawHeight+1);
+			}
+			else {
+				ctx.globalCompositeOperation = compositeOperation;
+				ctx.setTransform(this.scale,0,0,this.scale, -this._filterOffX,-this._filterOffY);
+				ctx.translate(-this.x, -this.y);
+				target.draw(ctx, true);
+			}
 			ctx.restore();
 
 			if (target.filters && target.filters.length) {
