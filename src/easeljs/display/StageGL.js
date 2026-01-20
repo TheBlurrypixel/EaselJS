@@ -1600,7 +1600,7 @@ this.createjs = this.createjs||{};
 				// removing storeid
 				// delete doesn't always work in older versons of Safari so also using removeAttribute
 				if(isCanvas) {
-					delete foundImage.data._storeid;
+					delete foundImage.dataset._storeid;
 					foundImage.removeAttribute('data-_storeid');
 				}
 
@@ -1610,7 +1610,7 @@ this.createjs = this.createjs||{};
 			// removing storeid
 			// delete doesn't always work in older versons of Safari so also using removeAttribute
 			if(isCanvas) {
-				delete foundImage.data._storeid;
+				delete foundImage.dataset._storeid;
 				foundImage.removeAttribute('data-_storeid');
 			}
 
