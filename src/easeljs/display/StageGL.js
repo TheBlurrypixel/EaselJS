@@ -1582,16 +1582,39 @@ this.createjs = this.createjs||{};
 			return;
 		}
 
+		// none of the above happens if it is a canvas element, test for it to find a storeID
+		// we retrieve a storeID from the dataset attribute because DOM element isn't exactly a run of the mill JS object
+		// we need to store it with lowercase "_storeid" because uppercase "_storeID" will add hyphenations as _store-i-d
+		var isCanvas = foundImage instanceof HTMLCanvasElement;
+		var storeID = isCanvas ? foundImage.dataset._storeid : foundImage._storeID;
+
 		// remove it
-		var texture = this._textureDictionary[foundImage._storeID];
+		var texture = this._textureDictionary[storeID]; // mod to use storeID variable from above
 		if (safe) {
-			var data = texture._imageData;
-			var index = data.indexOf(foundImage);
-			if (index >= 0) { data.splice(index, 1); }
-			foundImage._storeID = undefined;
-			if (data.length === 0) { this._killTextureObject(texture); }
+			if(texture) { // texture might be null if no storeID found
+				var data = texture._imageData;
+				var index = data.indexOf(foundImage);
+				if (index >= 0) { data.splice(index, 1); }
+				foundImage._storeID = undefined;
+
+				// removing storeid
+				// delete doesn't always work in older versons of Safari so also using removeAttribute
+				if(isCanvas) {
+					delete foundImage.data._storeid;
+					foundImage.removeAttribute('data-_storeid');
+				}
+
+				if (data.length === 0) { this._killTextureObject(texture); }
+			}
 		} else {
-			this._killTextureObject(texture);
+			// removing storeid
+			// delete doesn't always work in older versons of Safari so also using removeAttribute
+			if(isCanvas) {
+				delete foundImage.data._storeid;
+				foundImage.removeAttribute('data-_storeid');
+			}
+
+			this._killTextureObject(texture); // possible might be undefined but _killTextureObject() can handle it
 		}
 	};
 
@@ -2287,6 +2310,7 @@ this.createjs = this.createjs||{};
 			image._storeID = storeID;
 			texture = this._textureDictionary[storeID];
 		}
+		if(image._isCanvas) image.dataset._storeid = storeID; // mod DOM Element will not store the storeID unless it is in a dataset
 
 		// allow the texture to track its references for cleanup, if it's not an error ref
 		if (texture._storeID !== -1) {

@@ -33,39 +33,46 @@
 // namespace:
 this.createjs = this.createjs||{};
 
-/**
- * @class Debug Color Constants
- */
+(function() {
+	"use strict";
 
-/**
- * Unique constants used for indexing object properties
-*/
-var SYMBOLS = {
-	PROTECTED_DRAW: Symbol('protectedDraw'),
-	PROTECTED_CONTAINER_DRAW: Symbol('protectedContainerDraw'),
-	SPRITE: Symbol('sprite'),
-	BITMAPSWAP: Symbol('bitmapswap'),
-	CHILDREN: Symbol('children'),
-	WEBGLRENDERSTYLE: Symbol('_webGLRenderStyle'),
-	SPRITESHEET: Symbol('spriteSheet'),
-	CURRENTFRAME: Symbol('currentFrame'),
-	TICKENABLED: Symbol('tickEnabled'),
-	TICKCHILDREN: Symbol('tickChildren'),
-	SPRITE_TICK: Symbol('spriteTick'),
-	ADDCHILDAT: Symbol('addChildAt'),
-	COMPONENT_DRAW: Symbol('componentDraw'),
-	DETACH_FUNC: Symbol('detachFunc'),
-	GET_FRAME: Symbol('getFrame'),
-	AUDIO_UNLOCK: Symbol('audioUnlock'),
-	IS_FILE_XHR: Symbol('isFileXHRSupported'),
-	ALERT: Symbol('alert'),
-	KNOCKOFF: Symbol('knockoff'),
-	UPDATETIMELINE: Symbol('updateTimeline'),
-	SPRITE_COLOR: Symbol('spriteColor'),
-	CACHE_COLOR: Symbol('cacheColor'),
-	WARNING_COLORS: Symbol('warningColors')
-};
-createjs.spriteColor = createjs[SYMBOLS.SPRITE_COLOR] = "#FF00FF";
-createjs.cacheColor = createjs[SYMBOLS.CACHE_COLOR] = "#8800FF";
-createjs.warningColors = createjs[SYMBOLS.WARNING_COLORS] = 0;
-createjs.SYMBOLS = SYMBOLS;
+	/**
+	 * @class Debug Color Constants
+	 */
+
+	/**
+	 * Unique constants used for indexing object properties
+	*/
+	var SYMBOLS = {
+		PROTECTED_DRAW: Symbol('protectedDraw'),
+		PROTECTED_CONTAINER_DRAW: Symbol('protectedContainerDraw'),
+		SPRITE: Symbol('sprite'),
+		BITMAPSWAP: Symbol('bitmapswap'),
+		CHILDREN: Symbol('children'),
+		WEBGLRENDERSTYLE: Symbol('_webGLRenderStyle'),
+		SPRITESHEET: Symbol('spriteSheet'),
+		CURRENTFRAME: Symbol('currentFrame'),
+		TICKENABLED: Symbol('tickEnabled'),
+		TICKCHILDREN: Symbol('tickChildren'),
+		SPRITE_TICK: Symbol('spriteTick'),
+		ADDCHILDAT: Symbol('addChildAt'),
+		COMPONENT_DRAW: Symbol('componentDraw'),
+		DETACH_FUNC: Symbol('detachFunc'),
+		GET_FRAME: Symbol('getFrame'),
+		AUDIO_UNLOCK: Symbol('audioUnlock'),
+		IS_FILE_XHR: Symbol('isFileXHRSupported'),
+		ALERT: Symbol('alert'),
+		KNOCKOFF: Symbol('knockoff'),
+		UPDATETIMELINE: Symbol('updateTimeline'),
+		SPRITE_COLOR: Symbol('spriteColor'),
+		CACHE_COLOR: Symbol('cacheColor'),
+		WARNING_COLORS: Symbol('warningColors')
+	};
+
+	createjs.spriteColor = createjs[SYMBOLS.SPRITE_COLOR] = "#FF00FF";
+	createjs.cacheColor = createjs[SYMBOLS.CACHE_COLOR] = "#8800FF";
+	createjs.warningColors = createjs[SYMBOLS.WARNING_COLORS] = 0;
+	createjs.SYMBOLS = SYMBOLS;
+}());
+
+
