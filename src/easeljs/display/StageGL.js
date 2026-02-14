@@ -141,7 +141,8 @@ this.createjs = this.createjs||{};
 		this.Stage_constructor(canvas);
 
 		// adding webgl2 syncStoreIDPool options
-		var transparent, antialias, preserveBuffer, autoPurge, directDraw, batchSize, webgl2, syncStoreIDPool;
+		// adding options for npot filtering
+		var transparent, antialias, preserveBuffer, autoPurge, directDraw, batchSize, webgl2, syncStoreIDPool, npotFiltersLinear;
 		if (options !== undefined) {
 			if (typeof options !== "object"){ throw("Invalid options object"); }
 			transparent = options.transparent;
@@ -152,6 +153,9 @@ this.createjs = this.createjs||{};
 			batchSize = options.batchSize;
 			webgl2 = options.webgl2;
 			syncStoreIDPool = options.syncStoreIDPool;
+
+			// mod texture filtering options
+			npotFiltersLinear = options.npotFiltersLinear;
 		}
 
 // public properties:
@@ -559,6 +563,19 @@ this.createjs = this.createjs||{};
 		 * @default false
 		 */
 		this._webgl2 = webgl2;
+
+		/**
+		 * Add npotFiltersLinear
+		 * When true it will use gl.LINEAR for TEXTURE_MIN_FILTER and TEXTURE_MAG_FILTER same as for POT textures
+		 * When false it will use gl.NEAREST
+		 * enabling may decrease compatibility and performance in older devices 
+		 *
+		 * @property _npotFiltersLinear
+		 * @protected
+		 * @type {Boolean}
+		 * @default false
+		 */
+		this._npotFiltersLinear = npotFiltersLinear;
 
 		// and begin
 		this._initializeWebGL();
@@ -1838,8 +1855,8 @@ this.createjs = this.createjs||{};
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 		} else {
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, this._npotFiltersLinear ? gl.LINEAR : gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this._npotFiltersLinear ? gl.LINEAR : gl.NEAREST);
 		}
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
